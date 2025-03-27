@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI-Powered Chat Summarization</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css" rel="stylesheet">
+    <style>
+        @keyframes float {
+            0% { transform: translateY(0px); }
+            50% { transform: translateY(-20px); }
+            100% { transform: translateY(0px); }
+        }
+
+        .gradient-bg {
+            background: linear-gradient(135deg, #ffffff 0%, #000000 50%, #d28405 100%);
+            background-size: 300% 300%;
+            animation: gradientFlow 10s ease infinite;
+        }
+        
+        @keyframes gradientFlow {
+            0% {
+                background-position: 0% 50%;
+            }
+            50% {
+                background-position: 100% 50%;
+            }
+            100% {
+                background-position: 0% 50%;
+            }
+        }
+        
+
+        .file-drop-zone {
+            transition: all 0.3s ease;
+            border: 2px dashed #c4b5fd;
+        }
+
+        .file-drop-zone.dragover {
+            border-color: #8b5cf6;
+            background-color: rgba(139, 92, 246, 0.1);
+            transform: scale(1.02);
+        }
+
+        .message-entrance {
+            animation: slideIn 0.5s ease-out;
+        }
+        .chat-textarea {
+            width: 100%;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            background-color: rgba(0, 0, 0, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: white;
+            transition: all 0.3s ease;
+        }
+        
+        .chat-textarea:focus {
+            border-color: #d8b4fe;
+            outline: none;
+            box-shadow: 0 0 5px #a855f7;
+        }
+        
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .ai-message {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+        }
+
+        .error-message {
+            color: #ff4444;
+            background: rgba(255, 68, 68, 0.1);
+            border: 1px solid #ff4444;
+        }
+    </style>
+</head>
+<body class="gradient-bg min-h-screen text-gray-100">
+    <div class="container mx-auto px-4 py-12 max-w-3xl">
+        <h1 class="text-4xl font-bold text-center mb-8 animate-float">
+            🤖 AI-Powered Chat Summarization
+        </h1>
+
+        <div class="bg-white/10 rounded-xl p-6 shadow-xl backdrop-blur-lg transition-all duration-300 hover:shadow-2xl">
+            <div class="space-y-6">
+                <!-- Text Input -->
+                <div class="animate-fade-in-up">
+                    <label class="block text-lg font-medium mb-2">Enter your chat text:</label>
+                    <textarea class="chat-textarea" rows="5" placeholder="Paste your chat text here..."></textarea>
+                </div>
+
+                <!-- File Upload -->
+                <div class="animate-fade-in-up delay-100">
+                    <label class="block text-lg font-medium mb-2">Or upload a file (.txt or .pdf)</label>
+                    <div class="file-drop-zone relative rounded-lg p-8 text-center cursor-pointer"
+                         ondragover="this.classList.add('dragover')"
+                         ondragleave="this.classList.remove('dragover')"
+                         ondrop="this.classList.remove('dragover'); handleFileDrop(event)">
+                        <div class="space-y-4">
+                            <div class="text-4xl animate-pulse">📁</div>
+                            <p class="text-gray-300">Drag and drop file here</p>
+                            <p class="text-sm text-gray-400">Limit 5MB per file - TXT, PDF</p>
+                            <input type="file" class="hidden" id="fileInput" accept=".txt,.pdf">
+                            <button 
+                                onclick="document.getElementById('fileInput').click()"
+                                class="px-6 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg transition-all transform hover:scale-105">
+                                Browse files
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="flex gap-4 animate-fade-in-up delay-200">
+                    <button 
+                        class="px-8 py-3 bg-gradient-to-r from-purple-600 to-pink-500 rounded-lg font-semibold hover:scale-105 transition-transform flex items-center gap-2"
+                        onclick="startSummarization()">
+                        <span class="animate-pulse">✨</span> Summarize
+                    </button>
+                    <button 
+                        class="px-6 py-3 bg-gray-700 hover:bg-gray-600 rounded-lg transition-all"
+                        onclick="clearHistory()">
+                        🗑️ Clear History
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Chat History -->
+        <div class="mt-8 space-y-4 animate-slide-in-right">
+            <h2 class="text-2xl font-bold mb-4">Chat History</h2>
+            <div id="chatHistory" class="space-y-4">
+                <!-- Example Message (Marked as Placeholder) -->
+                <div class="ai-message p-4 rounded-lg message-entrance">
+                    <div class="flex items-start gap-3">
+                        <div class="text-2xl">🤖</div>
+                        <div>
+                            <p class="font-medium">Example Summary:</p>
+                            <p class="text-gray-300">This is a sample summary (not real data)...</p>
+                            <p class="text-sm text-gray-400 mt-2">Placeholder</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" class="fixed inset-0 bg-black/50 hidden items-center justify-center backdrop-blur-sm">
+        <div class="space-y-4 text-center">
+            <div class="text-4xl animate-spin">⏳</div>
+            <p class="text-xl">Analyzing content...</p>
+        </div>
+    </div>
+
+    <script>
+        // Wait for the DOM to fully load before attaching event listeners
+        document.addEventListener('DOMContentLoaded', () => {
+            // Element references
+            const dropZone = document.querySelector('.file-drop-zone');
+            const fileInput = document.getElementById('fileInput');
+            const chatTextarea = document.querySelector('.chat-textarea');
+            const summarizeForm = document.getElementById('summarizeForm'); // Optional, if you add a form
+
+            // Event listeners for drag-and-drop
+            dropZone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                dropZone.classList.add('dragover');
+            });
+
+            dropZone.addEventListener('dragleave', () => {
+                dropZone.classList.remove('dragover');
+            });
+
+            dropZone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                dropZone.classList.remove('dragover');
+                handleFileDrop(e);
+            });
+
+            // Event listener for file input change
+            fileInput.addEventListener('change', (e) => handleFiles(e.target.files));
+
+            // Optional: Form submission handler if you use a <form>
+            if (summarizeForm) {
+                summarizeForm.addEventListener('submit', (e) => {
+                    e.preventDefault();
+                    startSummarization();
+                });
+            }
+
+            // Summarize text or file content
+            async function startSummarization() {
+                const textInput = chatTextarea.value.trim();
+                const file = fileInput.files[0];
+
+                showLoading();
+
+                try {
+                    const formData = new FormData();
+                    let hasInput = false;
+
+                    if (file) {
+                        formData.append('file', file);
+                        hasInput = true;
+                    } else if (textInput) {
+                        formData.append('text', textInput);
+                        hasInput = true;
+                    }
+
+                    if (!hasInput) {
+                        throw new Error('Please enter text or upload a file');
+                    }
+
+                    const response = await fetch('/summarize', {
+                        method: 'POST',
+                        body: formData,
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`Server error: ${response.statusText}`);
+                    }
+
+                    const result = await response.json();
+
+                    if (result.error) {
+                        addChatMessage(`❌ Error: ${result.error}`, true);
+                    } else {
+                        addChatMessage(`📝 Summary generated: ${result.summary}`);
+                    }
+                } catch (error) {
+                    addChatMessage(`❌ ${error.message}`, true);
+                } finally {
+                    hideLoading();
+                }
+            }
+
+            // Handle file drop event
+            function handleFileDrop(e) {
+                e.preventDefault();
+                const files = e.dataTransfer.files;
+                handleFiles(files);
+                if (files.length > 0) {
+                    fileInput.files = files; // Update file input for summarization
+                }
+            }
+
+            // Validate and process uploaded files
+            function handleFiles(files) {
+                const file = files[0];
+                if (!file) return;
+
+                if (!['text/plain', 'application/pdf'].includes(file.type)) {
+                    addChatMessage('❌ Only TXT/PDF files are allowed', true);
+                    return;
+                }
+
+                if (file.size > 5 * 1024 * 1024) { // 5MB limit
+                    addChatMessage('❌ File size exceeds 5MB limit', true);
+                    return;
+                }
+
+                // Provide feedback without triggering summarization immediately
+                addChatMessage(`📄 File uploaded: ${file.name} (${formatFileSize(file.size)})`);
+            }
+
+            // Clear chat history
+            function clearHistory() {
+                document.getElementById('chatHistory').innerHTML = '';
+            }
+
+            // Show loading overlay
+            function showLoading() {
+                const loadingOverlay = document.getElementById('loadingOverlay');
+                if (loadingOverlay) {
+                    loadingOverlay.classList.remove('hidden');
+                }
+            }
+
+            // Hide loading overlay
+            function hideLoading() {
+                const loadingOverlay = document.getElementById('loadingOverlay');
+                if (loadingOverlay) {
+                    loadingOverlay.classList.add('hidden');
+                }
+            }
+
+            // Add a message to chat history
+            function addChatMessage(text, isError = false) {
+                const chatHistory = document.getElementById('chatHistory');
+                if (!chatHistory) return;
+
+                const chatDiv = document.createElement('div');
+                chatDiv.className = `p-4 rounded-lg message-entrance ${isError ? 'error-message' : 'ai-message'}`;
+                chatDiv.innerHTML = `
+                    <div class="flex items-start gap-3">
+                        <div class="text-2xl">${isError ? '❌' : '🤖'}</div>
+                        <div>
+                            <p class="${isError ? 'text-red-300' : 'text-gray-300'}">${text}</p>
+                            <p class="text-sm text-gray-400 mt-2">${new Date().toLocaleTimeString()}</p>
+                        </div>
+                    </div>
+                `;
+                chatHistory.prepend(chatDiv);
+
+                // Optional: Limit history to prevent DOM overload
+                const maxMessages = 50;
+                if (chatHistory.children.length > maxMessages) {
+                    chatHistory.removeChild(chatHistory.lastChild);
+                }
+            }
+
+            // Format file size for display
+            function formatFileSize(bytes) {
+                if (bytes >= 1e6) return `${(bytes / 1e6).toFixed(1)} MB`;
+                if (bytes >= 1e3) return `${(bytes / 1e3).toFixed(1)} KB`;
+                return `${bytes} B`;
+            }
+
+            // Expose functions globally for inline HTML event handlers (if needed)
+            window.startSummarization = startSummarization;
+            window.clearHistory = clearHistory;
+            window.handleFileDrop = handleFileDrop; // If you keep inline ondrop
+        });
+    </script>
+    <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'91a25ce148c344d5',t:'MTc0MDkzMzkwOC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script>
+</body>
+</html>
